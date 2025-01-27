@@ -5,7 +5,16 @@ which is available in the [bin](bin) directory of this repo.
 This utility can be used to transparently checkpoint and restore CUDA state within a running Linux process,
 and can be combined with [CRIU](https://criu.org/Main_Page) (described below) to fully checkpoint CUDA applications.
 
-## Introduction
+## 570 Features
+Display driver version 570 includes these features not present in 550:
+* NVML support
+* integration with CRIU 4.0 or higher, providing process tree support
+* [CUDA Driver interfaces](https://docs.nvidia.com/cuda/cuda-driver-api/group__CUDA__CHECKPOINT.html) at feature parity with the `cuda-checkpoint` utility
+* a separate lock command which can take a timeout to avoid deadlocks
+
+This [demo program](src/r570-features.c) shows many of these features in action!
+
+## Background
 Transparent, per-process checkpointing offers a middle ground between virtual machine checkpointing and application-driven checkpointing.
 Per-process checkpointing can be used in combination with containers to checkpoint the state of a complex application,
 facilitating uses-cases such as:
@@ -45,15 +54,31 @@ The `cuda-checkpoint` utility supports display driver version 550 and higher and
 ```bash
 localhost$ cuda-checkpoint --help
 CUDA checkpoint and restore utility.
-Toggles the state of CUDA within a process between suspended and running.
-Version 550.54.09. Copyright (C) 2024 NVIDIA Corporation. All rights reserved.
+Version 570.86.10. Copyright (C) 2025 NVIDIA Corporation. All rights reserved.
 
-    --toggle --pid <value>
-        Toggle the state of CUDA in the specified process.
+Operations:
+--get-state --pid <pid>
+        Prints the current checkpoint state of the process specified by <pid>
 
-    --help
-        Print help message.
+--action lock | checkpoint | restore | unlock --pid <pid> [--timeout <ms>]
+        Performs the specified action on <pid>.
+        For the lock action a timeout can be provided, the lock operation will wait up to <ms> milliseconds for the operation to succeed.
 
+--toggle --pid <pid>
+        Toggles the CUDA state in the specified process between the running and checkpointed states
+
+--get-restore-tid --pid <pid>
+        Retrieves the CUDA restore thread ID of the process specified by <pid>
+
+Options:
+--pid|-p <pid>
+        The pid upon which to perform the operation
+
+--timeout|-t <timeout>
+        Optional timeout that can be specified for the lock action in milliseconds
+
+--help|-h
+        Print this help message
 ```
 
 The `cuda-checkpoint` binary can toggle the CUDA state of a process (specified by PID) between suspended and running.
@@ -218,11 +243,10 @@ localhost# echo hello | nc -u localhost 10000 -W 1
 ```
 
 ## Functionality
-As of display driver version 550, checkpoint and restore functionality is still being actively developed.
+As of display driver version 570, checkpoint and restore functionality is still being actively developed.
 In particular, `cuda-checkpoint`:
 
 * is x64 only,
-* acts upon a single process, not a process tree,
 * does not support UVM or IPC memory,
 * does not support GPU migration,
 * waits for already-submitted CUDA work to finish before completing a checkpoint,
