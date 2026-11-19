@@ -189,12 +189,17 @@ int main(int argc, char **argv)
         CHECK_OK(cuCheckpointProcessCheckpoint(pids[i], &checkpoint_args));
     }
 
-    // Make sure that processes are restored and unlocked in the same order
-    // that they were checkpointed
+    // Restore every process before unlocking any of them.
+    // Restore order does not need to match the order used for checkpoint.
+    // After every process has been restored, unlock them all so they can
+    // start using CUDA again.
     for (int i = 0; i < PEER_COUNT; i++) {
         CUcheckpointRestoreArgs restore_args = {0};
-        CUcheckpointUnlockArgs unlock_args = {0};
         CHECK_OK(cuCheckpointProcessRestore(pids[i], &restore_args));
+    }
+
+    for (int i = 0; i < PEER_COUNT; i++) {
+        CUcheckpointUnlockArgs unlock_args = {0};
         CHECK_OK(cuCheckpointProcessUnlock(pids[i], &unlock_args));
     }
 
